@@ -6,13 +6,16 @@ import saferx
 # run 0.0.0.0.8080:
 
 import requests
-
+import json
 # base URL
 BASE_URL = 'http://localhost:8000'
 
 # 테스트할 파일 경로
 location_file_path = '/mount/nas/disk02/Data/Health/Mental_Health/SAFER/20240514/snuh_all_20240514/snuh_location.csv'
 sensor_file_path ='/mount/nas/disk02/Data/Health/Mental_Health/SAFER/20240812/snuh_20240806/snuh_sensing.csv'
+trait_file_path ='/mount/nas/disk02/Data/Health/Mental_Health/SAFER/20240514/trait_state/SAFER_selected_trait.csv'
+crf_file_path='/mount/nas/disk02/Data/Health/Mental_Health/SAFER/20240514/trait_state/SAFER_selected_state.csv'
+
 # 테스트용 location_dict 정의
 location_dict = {
     "(37.579239,126.998505)": "hallway",
@@ -52,60 +55,143 @@ location_dict = {
     "(37.579534,126.998785)": "other"
 }
 
-##### 파일과 location_dict 전송 준비 #####
+########################################################################## m1  ##########################################################################
+def call_api(url, method='POST', files=None, data=None, json_data=None):
+    """API 호출 유틸리티 함수"""
+    try:
+        response = requests.request(method, url, files=files, data=data, json=json_data)
+        response.raise_for_status()
+        print(f"{url} 호출 성공:", response.json())
+        return response.json()
+    except requests.exceptions.HTTPError as err:
+        print(f"{url} 호출 실패:", err)
+        return None
 
-# location_data 준비
+# 1. /assign_location_labels 호출
 location_files = {'location_file': open(location_file_path, 'rb')}
-location_data = {'location_dict': str(location_dict)}
+location_data = {'location_dict': json.dumps(location_dict)}
+call_api(f'{BASE_URL}/m1_assign_location_labels', files=location_files, data=location_data)
 
-# sensor_data 준비
-sensor_files = {'sensor_file' : open(sensor_file_path,'rb')}
 
-# crf_data 준비
+# 2. /load_sensing_data 호출
+sensor_files = {'sensor_file': open(sensor_file_path, 'rb')}
+call_api(f'{BASE_URL}/m1_load_sensing_data', files=sensor_files)
 
-#####  POST 요청 전송 ##### 
 
-# 위치 데이터
-response = requests.post(f'{BASE_URL}/assign_location_labels', files=location_files, data=location_data)
 
-# 응답 확인
-if response.status_code == 200:
-    print("성공적으로 위치 데이터 라벨이 할당되었습니다.")
-    print(response.json())
+# set_suicide_flag 데이터를 JSON 형식으로 변환
+import pandas as pd
+
+suicide_flags = [
+    {'name': '101-14KNJ', 'time': pd.to_datetime('2023-07-14 14:00:00')},
+    {'name': '101-14KNJ', 'time': pd.to_datetime('2023-07-14 10:00:00')},
+    {'name': '101-14KNJ', 'time': pd.to_datetime('2023-07-15 11:00:00')},
+    {'name': '101-14KNJ', 'time': pd.to_datetime('2023-07-17 17:00:00')},
+    
+    {'name': '101-23PDM', 'time': pd.to_datetime('2023-09-17 12:00:00')},
+    {'name': '101-3JYS', 'time': pd.to_datetime('2023-06-04 22:00:00')},
+    
+    {'name': '101-37SJM', 'time': pd.to_datetime('2023-12-29 21:00:00')},
+    {'name': '101-37SJM', 'time': pd.to_datetime('2023-12-30 16:00:00')},
+    {'name': '101-40OJE', 'time': pd.to_datetime('2023-12-28 19:00:00')},
+    
+    {'name': '101-46KSE', 'time': pd.to_datetime('2023-02-03 21:00:00')},
+    {'name': '101-46KSE', 'time': pd.to_datetime('2023-02-04 15:00:00')},
+    
+    {'name': '101-49SJM', 'time': pd.to_datetime('2023-03-13 00:00:00')},
+    {'name': '101-49SJM', 'time': pd.to_datetime('2023-03-13 23:00:00')},
+    {'name': '101-49SJM', 'time': pd.to_datetime('2023-03-29 14:00:00')},
+    
+    {'name': '101-54LYR', 'time': pd.to_datetime('2024-02-28 18:00:00')},
+    {'name': '101-54LYR', 'time': pd.to_datetime('2024-02-28 22:00:00')},
+    {'name': '101-54LYR', 'time': pd.to_datetime('2024-03-11 18:00:00')},
+    
+    {'name': '101-59KSJ', 'time': pd.to_datetime('2024-04-02 10:00:00')},
+    {'name': '101-59KSJ', 'time': pd.to_datetime('2024-04-02 11:00:00')},
+    
+    {'name': '101-61LSK', 'time': pd.to_datetime('2024-04-05 21:00:00')},
+    {'name': '101-61LSK', 'time': pd.to_datetime('2024-04-06 19:00:00')},
+    {'name': '101-61LSK', 'time': pd.to_datetime('2024-04-07 18:00:00')},
+    {'name': '101-61LSK', 'time': pd.to_datetime('2024-04-08 18:00:00')},
+    {'name': '101-61LSK', 'time': pd.to_datetime('2024-04-09 06:00:00')},
+    {'name': '101-61LSK', 'time': pd.to_datetime('2024-04-10 06:00:00')},
+    {'name': '101-61LSK', 'time': pd.to_datetime('2024-04-11 06:00:00')},
+    
+    {'name': '101-63KYS', 'time': pd.to_datetime('2024-04-08 13:00:00')},
+    {'name': '101-63KYS', 'time': pd.to_datetime('2024-04-21 01:00:00')}
+]
+
+# JSON 형식으로 변환할 준비
+json_suicide_flags = [{'name': entry['name'], 'time': entry['time'].isoformat()} for entry in suicide_flags]
+
+
+# 3. /load_data 호출
+files = {
+    'crf_file': open(crf_file_path, 'rb'),
+    'trait_file': open(trait_file_path, 'rb')
+}
+load_data_response = call_api(f'{BASE_URL}/m1_load_data', files=files, json_data={'suicide_flags': json_suicide_flags})
+if load_data_response:
+    print("All data loaded successfully.")
 else:
-    print(f"위치 데이터 오류 발생: {response.status_code}")
-    print(response.json())
+    print("Failed to load data. Stopping further execution.")
+    exit(1)
 
-# 센서 데이터
-response = requests.post(f'{BASE_URL}/load_sensing_data', files=sensor_files)
-if response.status_code == 200 :
-    print("성공적으로 센서 데이터 라벨이 할당되었습니다.")
-    print(response.json())
-
-
-
+# 4. /predict 호출
+predict_response = call_api(f'{BASE_URL}/m1_predict')
+if predict_response:
+    print("Prediction Completed:", predict_response['predictions'])
+else:
+    print("Prediction failed. Please check the logs for details.")
 
 
+########################################################################## m2  ##########################################################################
 
+# def call_api(url, method='POST', files=None, data=None, json_data=None):
+#     """API 호출 유틸리티 함수"""
+#     try:
+#         response = requests.request(method, url, files=files, data=data, json=json_data)
+#         response.raise_for_status()
+#         print(f"{url} 호출 성공:", response.json())
+#         return response.json()
+#     except requests.exceptions.HTTPError as err:
+#         print(f"{url} 호출 실패:", err)
+#         return None
 
-# response = requests.post(f'{BASE_URL}/load_data', files=files)
-# print(response.json())
+# # 1. /assign_location_labels 호출
+# location_files = {'location_file': open(location_file_path, 'rb')}
+# location_data = {'location_dict': json.dumps(location_dict)}
+# call_api(f'{BASE_URL}/assign_location_labels', files=location_files, data=location_data)
 
-# # 2. merge_location_and_sensor 엔드포인트 호출
-# response = requests.post(f'{BASE_URL}/merge_location_and_sensor')
-# print(response.json())
+# # 2. /load_sensing_data 호출
+# sensor_files = {'sensor_file': open(sensor_file_path, 'rb')}
+# call_api(f'{BASE_URL}/load_sensing_data', files=sensor_files)
 
-# # 3. process_crf_data 엔드포인트 호출
-# response = requests.post(f'{BASE_URL}/process_crf_data')
-# print(response.json())
-
-# # 4. merge_trait_data 엔드포인트 호출
-# response = requests.post(f'{BASE_URL}/merge_trait_data')
-# print(response.json())
-
-# # 5. predict 엔드포인트 호출
+# # 3. /load_data 호출
 # files = {
-#     'data_file': open('merged_data_m2_dong.csv', 'rb'),
+#     'crf_file': open(crf_file_path, 'rb'),
+#     'trait_file': open(trait_file_path, 'rb')
 # }
-# response = requests.post(f'{BASE_URL}/predict', files=files)
-# print(response.json())
+# load_data_response = call_api(f'{BASE_URL}/load_data', files=files)
+
+# if load_data_response:
+#     print("All data loaded successfully.")
+# else:
+#     print("Failed to load data. Stopping further execution.")
+#     exit(1)
+
+
+# # 4. /predict 호출
+# predict_response = call_api(f'{BASE_URL}/predict')
+
+# if predict_response:
+#     print("Prediction Completed:", predict_response['predictions'])
+# else:
+#     print("Prediction failed. Please check the logs for details.")
+
+
+
+
+
+
+

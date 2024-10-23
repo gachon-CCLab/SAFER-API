@@ -67,6 +67,7 @@ def assign_location_labels():
         return jsonify({'error': str(e)}), 500
 
 ###################################### m2_sensor######################################
+
 @app.route('/load_sensing_data', methods=['POST'])
 def load_sensing_data():
     global stored_sensor_data
@@ -90,24 +91,49 @@ def load_sensing_data():
 
 
 
+###################################### m2_crf ######################################
+
+
+
 @app.route('/load_data', methods=['POST'])
 def load_data():
     global stored_location_data, stored_sensor_data
     try:
-        location_file = request.files.get('location_file')
-        sensor_file = request.files.get('sensor_file')
+        # 저장된 location 및 sensor 데이터 사용
+        if stored_location_data is None or stored_sensor_data is None:
+            raise ValueError("저장된 location 또는 sensor 데이터가 없습니다.")
+
+        # 요청에서 추가 파일(CRF, trait) 추출
         crf_file = request.files.get('crf_file')
         trait_file = request.files.get('trait_file')
 
-        location_data = pd.read_csv(location_file) if location_file else None
-        sensor_data = pd.read_csv(sensor_file) if sensor_file else None
+        # 추가 데이터 로드
         crf_data = pd.read_csv(crf_file) if crf_file else None
         trait_data = pd.read_csv(trait_file) if trait_file else None
 
-        data_processor.load_data(location_data, sensor_data, crf_data, trait_data)
-        return jsonify({'message': 'Data loaded successfully'}), 200
+        print("CRF 및 Trait 데이터 로드 완료")
+
+        # 모든 데이터 처리 및 로드
+        data_processor.load_data(
+            stored_location_data, stored_sensor_data, crf_data, trait_data
+        )
+
+        return jsonify({'message': 'All data loaded successfully'}), 200
+
+    except ValueError as ve:
+        print(f"ValueError: {ve}")
+        return jsonify({'error': str(ve)}), 400
     except Exception as e:
+        print(f"Exception: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+
+
+
+
+
+
 
 @app.route('/merge_location_and_sensor', methods=['POST'])
 def merge_location_and_sensor():
