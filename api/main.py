@@ -1,6 +1,6 @@
 import saferx
 # import restapi
-
+import pandas as pd
 # get model run , input parameter, output paremeter
 
 # run 0.0.0.0.8080:
@@ -56,11 +56,23 @@ location_dict = {
 }
 
 ########################################################################## m1  ##########################################################################
-def call_api(url, method='POST', files=None, data=None, json_data=None):
+# def call_api(url, method='POST', files=None, data=None, json_data=None):
+#     """API 호출 유틸리티 함수"""
+#     try:
+#         response = requests.request(method, url, files=files, data=data, json=json_data)
+#         response.raise_for_status()
+#         print(f"{url} 호출 성공:", response.json())
+#         return response.json()
+#     except requests.exceptions.HTTPError as err:
+#         print(f"{url} 호출 실패:", err)
+#         return None
+
+
+def call_api_m1(url, method='POST', files=None, data=None):
     """API 호출 유틸리티 함수"""
     try:
-        response = requests.request(method, url, files=files, data=data, json=json_data)
-        response.raise_for_status()
+        response = requests.request(method, url, files=files, data=data)
+        response.raise_for_status()  # 상태 코드가 4xx 또는 5xx인 경우 예외 발생
         print(f"{url} 호출 성공:", response.json())
         return response.json()
     except requests.exceptions.HTTPError as err:
@@ -70,17 +82,17 @@ def call_api(url, method='POST', files=None, data=None, json_data=None):
 # 1. /assign_location_labels 호출
 location_files = {'location_file': open(location_file_path, 'rb')}
 location_data = {'location_dict': json.dumps(location_dict)}
-call_api(f'{BASE_URL}/m1_assign_location_labels', files=location_files, data=location_data)
+call_api_m1(f'{BASE_URL}/m1_assign_location_labels', files=location_files, data=location_data)
 
 
 # 2. /load_sensing_data 호출
 sensor_files = {'sensor_file': open(sensor_file_path, 'rb')}
-call_api(f'{BASE_URL}/m1_load_sensing_data', files=sensor_files)
+call_api_m1(f'{BASE_URL}/m1_load_sensing_data', files=sensor_files)
 
 
 
 # set_suicide_flag 데이터를 JSON 형식으로 변환
-import pandas as pd
+
 
 suicide_flags = [
     {'name': '101-14KNJ', 'time': pd.to_datetime('2023-07-14 14:00:00')},
@@ -121,24 +133,33 @@ suicide_flags = [
     {'name': '101-63KYS', 'time': pd.to_datetime('2024-04-21 01:00:00')}
 ]
 
-# JSON 형식으로 변환할 준비
+
+
+# JSON 데이터를 문자열로 변환
 json_suicide_flags = [{'name': entry['name'], 'time': entry['time'].isoformat()} for entry in suicide_flags]
+json_data = json.dumps({'suicide_flags': json_suicide_flags})
 
-
-# 3. /load_data 호출
+# CRF와 Trait 파일 전송 설정
 files = {
     'crf_file': open(crf_file_path, 'rb'),
     'trait_file': open(trait_file_path, 'rb')
 }
-load_data_response = call_api(f'{BASE_URL}/m1_load_data', files=files, json_data={'suicide_flags': json_suicide_flags})
-if load_data_response:
+
+# /m1_load_data 호출
+response = call_api_m1(
+    f'{BASE_URL}/m1_load_data',
+    files=files,
+    data={'json_data': json_data}  # 문자열로 변환한 JSON 데이터 전송
+)
+
+if response:
     print("All data loaded successfully.")
 else:
-    print("Failed to load data. Stopping further execution.")
-    exit(1)
+    print("Failed to load data.")
+
 
 # 4. /predict 호출
-predict_response = call_api(f'{BASE_URL}/m1_predict')
+predict_response = call_api_m1(f'{BASE_URL}/m1_predict')
 if predict_response:
     print("Prediction Completed:", predict_response['predictions'])
 else:
@@ -147,47 +168,47 @@ else:
 
 ########################################################################## m2  ##########################################################################
 
-# def call_api(url, method='POST', files=None, data=None, json_data=None):
-#     """API 호출 유틸리티 함수"""
-#     try:
-#         response = requests.request(method, url, files=files, data=data, json=json_data)
-#         response.raise_for_status()
-#         print(f"{url} 호출 성공:", response.json())
-#         return response.json()
-#     except requests.exceptions.HTTPError as err:
-#         print(f"{url} 호출 실패:", err)
-#         return None
+def call_api(url, method='POST', files=None, data=None, json_data=None):
+    """API 호출 유틸리티 함수"""
+    try:
+        response = requests.request(method, url, files=files, data=data, json=json_data)
+        response.raise_for_status()
+        print(f"{url} 호출 성공:", response.json())
+        return response.json()
+    except requests.exceptions.HTTPError as err:
+        print(f"{url} 호출 실패:", err)
+        return None
 
-# # 1. /assign_location_labels 호출
-# location_files = {'location_file': open(location_file_path, 'rb')}
-# location_data = {'location_dict': json.dumps(location_dict)}
-# call_api(f'{BASE_URL}/assign_location_labels', files=location_files, data=location_data)
+# 1. /assign_location_labels 호출
+location_files = {'location_file': open(location_file_path, 'rb')}
+location_data = {'location_dict': json.dumps(location_dict)}
+call_api(f'{BASE_URL}/assign_location_labels', files=location_files, data=location_data)
 
-# # 2. /load_sensing_data 호출
-# sensor_files = {'sensor_file': open(sensor_file_path, 'rb')}
-# call_api(f'{BASE_URL}/load_sensing_data', files=sensor_files)
+# 2. /load_sensing_data 호출
+sensor_files = {'sensor_file': open(sensor_file_path, 'rb')}
+call_api(f'{BASE_URL}/load_sensing_data', files=sensor_files)
 
-# # 3. /load_data 호출
-# files = {
-#     'crf_file': open(crf_file_path, 'rb'),
-#     'trait_file': open(trait_file_path, 'rb')
-# }
-# load_data_response = call_api(f'{BASE_URL}/load_data', files=files)
+# 3. /load_data 호출
+files = {
+    'crf_file': open(crf_file_path, 'rb'),
+    'trait_file': open(trait_file_path, 'rb')
+}
+load_data_response = call_api(f'{BASE_URL}/load_data', files=files)
 
-# if load_data_response:
-#     print("All data loaded successfully.")
-# else:
-#     print("Failed to load data. Stopping further execution.")
-#     exit(1)
+if load_data_response:
+    print("All data loaded successfully.")
+else:
+    print("Failed to load data. Stopping further execution.")
+    exit(1)
 
 
-# # 4. /predict 호출
-# predict_response = call_api(f'{BASE_URL}/predict')
+# 4. /predict 호출
+predict_response = call_api(f'{BASE_URL}/predict')
 
-# if predict_response:
-#     print("Prediction Completed:", predict_response['predictions'])
-# else:
-#     print("Prediction failed. Please check the logs for details.")
+if predict_response:
+    print("Prediction Completed:", predict_response['predictions'])
+else:
+    print("Prediction failed. Please check the logs for details.")
 
 
 
